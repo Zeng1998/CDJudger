@@ -1,0 +1,40 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/keane/Documents/OnlineJudge/CDJudger/src/http.cpp
+http.h
+/home/keane/Documents/OnlineJudge/CDJudger/src/http.h
+cstdio
+-
+cstring
+-
+cstdlib
+-
+unistd.h
+-
+sys/types.h
+-
+sys/stat.h
+-
+sys/socket.h
+-
+arpa/inet.h
+-
+netdb.h
+-
+fcntl.h
+-
+signal.h
+-
+
+/home/keane/Documents/OnlineJudge/CDJudger/src/http.h
+string.h
+-
+stdio.h
+-
+

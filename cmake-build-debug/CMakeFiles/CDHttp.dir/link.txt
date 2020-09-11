@@ -1,0 +1,1 @@
+/usr/bin/c++  -g   CMakeFiles/CDHttp.dir/src/http.cpp.o  -o CDHttp 

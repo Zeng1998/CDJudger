@@ -1,4 +1,45 @@
-从 [KIDx/Judger](https://github.com/KIDx/Judger) 魔改而来，只保留了 cpp 的判题核心。
+修改自[acm309/Judger](https://github.com/acm309/Judger) 和 [KIDx/Judger](https://github.com/KIDx/Judger)
+
+- 删除了topcoder模式
+- 不同语言单独配置运行时间参数，不采用Java2倍的做法，在应用层解决
+- 不考虑OLE，输出不匹配统一为WA
+- 去掉meta.json的处理
+- 暂时不考虑spj，但先别删
+
+文件包括：
+
+- json.hpp：一个c++的json库
+- logger.h： 日志处理
+- language.h：不同语言的运行配置
+- okcall.h/okcall_x64/okcall_x86：系统调用白名单
+- judge.h：判题
+- http.h：web服务
+- main.cpp：主文件
+
+判题接口的参数：
+
+- 语言 0: C 1: C++ 2: Java
+- 时间限制
+- 内存限制
+- uid(可以找到所有in和out数据)
+- 是否需要spj
+- spj文件的uid
+
+{
+    "lang": 1,
+    "time":
+    "mem":
+    "uid":
+    "spj":0,
+    "spjuid":
+}
+
+返回值：
+
+- 状态码
+- 编译错误信息
+- 时间
+- 内存
 
 在支持多组测试的基础上，将各组判题结果汇总之后以 JSON 格式输出到 `result.json`。
 
