@@ -24,7 +24,6 @@
 
 #include <cstdio>
 #include <cstdlib>
-#include <ctime>
 #include <cstring>
 #include <unistd.h>
 #include <errno.h>
@@ -47,8 +46,7 @@ const int LOG_NOTICE = 1;
 const int LOG_WARNING = 2;
 const int LOG_BUG = 3;
 
-static char LOG_INFO[][10] =
-        {"DEBUG", "NOTICE", "WARNING", "BUG"};
+static char LOG_INFO[][10] = {"DEBUG", "NOTICE", "WARNING", "BUG"};
 
 // Lock file log
 #define LOG_WLOCK(fd, offset, whence, len) \

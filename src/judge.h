@@ -21,12 +21,13 @@
 
 //#define JUDGE_DEBUG
 
+// 全局判题配置
 namespace judge_conf {
     const char config_file[] = "config.ini";
     std::string log_file = "judger.log";
     std::string sysuser = "keane";
-    std::string temp_dir="";
-    std::string work_dir="";
+    std::string temp_dir = "";
+    std::string work_dir = "";
     int judge_time_limit = 60000;
     int stack_size_limit = 8192;
     int compile_time_limit = 10000;
@@ -35,7 +36,7 @@ namespace judge_conf {
 
     void ReadConf() {
         FILE *conf = fopen(config_file, "r");
-        if (!conf){
+        if (!conf) {
             return;
         }
         enum {
@@ -68,10 +69,10 @@ namespace judge_conf {
             }
         }
         if (judm.find("temp_dir") != judm.end()) {
-            temp_dir=judm["temp_dir"];
+            temp_dir = judm["temp_dir"];
         }
         if (judm.find("work_dir") != judm.end()) {
-            work_dir=judm["work_dir"];
+            work_dir = judm["work_dir"];
         }
         if (judm.find("judge_time_limit") != judm.end()) {
             sscanf(judm["judge_time_limit"].c_str(), "%d", &judge_time_limit);
@@ -92,9 +93,9 @@ namespace judge_conf {
             sysuser = sysm["sysuser"];
     }
 
-    const int LANG_C        = 0;
-    const int LANG_CPP      = 1;
-    const int LANG_JAVA     = 2;
+    const int LANG_C = 0;
+    const int LANG_CPP = 1;
+    const int LANG_JAVA = 2;
 
     const int OJ_WAIT = 0;    //Queue
     const int OJ_RUN = 1;    //RUN
@@ -138,7 +139,6 @@ namespace judge_conf {
     const int EXIT_NO_LOGGER = 38;
     const int EXIT_UNKNOWN = 127;
 };
-
 namespace problem {
     int lang = 0;
     int time_limit = 1000;
@@ -151,8 +151,6 @@ namespace problem {
     bool spj = false;
 
     std::string data_dir = "data";
-
-
     std::string source_file;
     std::string spj_exe_file;
 
@@ -179,7 +177,6 @@ namespace problem {
     }
 #endif
 };
-
 // example:malarm(ITIMER_REAL, judge_conf::judge_time_limit);
 int malarm(int which, int milliseconds) {
     struct itimerval it;
@@ -189,5 +186,4 @@ int malarm(int which, int milliseconds) {
     it.it_interval.tv_usec = 0;
     return setitimer(which, &it, NULL);
 }
-
 #endif

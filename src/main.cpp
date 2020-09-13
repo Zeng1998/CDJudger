@@ -18,182 +18,9 @@
 #include "okcall.h"
 #include "json.hpp"
 #include "http.h"
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-
-#define CONNMAX 1000
-static int listenfd, clients[CONNMAX];
-
-static void error(char *);
-
-static void startServer(const char *);
-
-static void respond(int);
-
-typedef struct {
-    char *name, *value;
-} header_t;
-static header_t reqhdr[17] = {{"\0", "\0"}};
-static int clientfd;
-
-static char *buf;
-
-void serve_forever(const char *PORT) {
-    struct sockaddr_in clientaddr;
-    socklen_t addrlen;
-    int slot = 0;
-    printf("Server started http://127.0.0.1:%s\n", PORT);
-    for (int i = 0; i < CONNMAX; i++) {
-        clients[i] = -1;
-    }
-    startServer(PORT);
-    // Ignore SIGCHLD to avoid zombie threads
-    // 如果把这个注释掉就正常了
-//    signal(SIGCHLD, SIG_IGN);
-
-    // ACCEPT connections
-    while (1) {
-        addrlen = sizeof(clientaddr);
-        clients[slot] = accept(listenfd, (struct sockaddr *) &clientaddr, &addrlen);
-
-        if (clients[slot] < 0) {
-            perror("accept() error");
-        } else {
-            if (fork() == 0) {
-                respond(slot);
-                exit(0);
-            }
-        }
-
-        while (clients[slot] != -1) slot = (slot + 1) % CONNMAX;
-    }
-}
-
-void startServer(const char *port) {
-    struct addrinfo hints, *res, *p;
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_INET;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_flags = AI_PASSIVE;
-    if (getaddrinfo(NULL, port, &hints, &res) != 0) {
-        perror("getaddrinfo() error");
-        exit(1);
-    }
-    for (p = res; p != NULL; p = p->ai_next) {
-        int option = 1;
-        listenfd = socket(p->ai_family, p->ai_socktype, 0);
-        setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option));
-        if (listenfd == -1) {
-            continue;
-        }
-        if (bind(listenfd, p->ai_addr, p->ai_addrlen) == 0) {
-            break;
-        }
-    }
-    if (p == NULL) {
-        perror("socket() or bind()");
-        exit(1);
-    }
-    freeaddrinfo(res);
-    if (listen(listenfd, 1000000) != 0) {
-        perror("listen() error");
-        exit(1);
-    }
-}
-
-char *request_header(const char *name) {
-    header_t *h = reqhdr;
-    while (h->name) {
-        if (strcmp(h->name, name) == 0) return h->value;
-        h++;
-    }
-    return NULL;
-}
-
-std::string data = "";
-
-void respond(int n) {
-    int rcvd;
-    buf = (char *) malloc(65535);
-    rcvd = recv(clients[n], buf, 65535, 0);
-    if (rcvd < 0)    // receive error
-        fprintf(stderr, ("recv() error\n"));
-    else if (rcvd == 0)    // receive socket closed
-        fprintf(stderr, "Client disconnected upexpectedly.\n");
-    else    // message received
-    {
-        buf[rcvd] = '\0';
-
-        method = strtok(buf, " \t\r\n");
-        uri = strtok(NULL, " \t");
-        prot = strtok(NULL, " \t\r\n");
-        fprintf(stderr, "\x1b[32m + [%s] %s\x1b[0m\n", method, uri);
-
-        if (qs = strchr(uri, '?')) {
-            *qs++ = '\0'; //split URI
-        } else {
-            qs = uri - 1; //use an empty string
-        }
-
-        header_t *h = reqhdr;
-        char *t, *t2;
-        bool content = false;
-        while (h < reqhdr + 16) {
-            char *k, *v, *t;
-            if (content) {
-                k = strtok(NULL, "\r\n: \t");
-                if (!k) break;
-                v = strtok(NULL, "\r\n");
-                while (*v && *v == ' ') v++;
-                data = std::string(k, k + strlen(k));
-                data += ": ";
-                data += v;
-            } else {
-                k = strtok(NULL, "\r\n: \t");
-                if (!k) break;
-                v = strtok(NULL, "\r\n");
-                while (*v && *v == ' ') v++;
-            }
-            h->name = k;
-            h->value = v;
-            h++;
-            fprintf(stderr, "[H] %s: %s\n", k, v);
-            t = v + 1 + strlen(v);
-            if (t[1] == '\r' && t[2] == '\n') {
-                content = true;
-            }
-        }
-        t = strtok(NULL, "\r\n");
-//        t++; // now the *t shall be the beginning of user payload
-        t2 = request_header("Content-Length"); // and the related header if there is
-        payload = t;
-        payload_size = t2 ? atol(t2) : (rcvd - (t - buf));
-
-        // bind clientfd to stdout, making it easier to write
-        clientfd = clients[n];
-        dup2(clientfd, STDOUT_FILENO);
-        close(clientfd);
-
-        // call router
-        route();
-
-        // tidy up
-        fflush(stdout);
-        shutdown(STDOUT_FILENO, SHUT_WR);
-        close(STDOUT_FILENO);
-    }
-
-    //Closing SOCKET
-    shutdown(clientfd, SHUT_RDWR);         //All further send and recieve operations are DISABLED...
-    close(clientfd);
-    clients[n] = -1;
-}
-
-#define Max(x, y) (x) > (y) ? (x) : (y)
 #define is_space_char(a) ((a == ' ') || (a == '\t') || (a == '\n') || (a == '\r'))
 using namespace std;
-using json = nlohmann::json;
+using namespace nlohmann;
 
 //#define JUDGE_DEBUG
 extern int errno;
@@ -239,19 +66,13 @@ void compare_until_nonspace(int &c_std, int &c_usr, FILE *&fd_std, FILE *&fd_usr
     }
 }
 
-// 在spj_path里写一个spj.cpp printf("AC")就是AC，即可
+// 在spj_path里写一个spj.cpp printf("AC")就是AC
 int spj_compare_output(
         string input_file,  //标准输入文件
         string output_file, //用户程序的输出文件
-        string spj_path,    //spj路径, change it from exefile to the folder who store the exefile
+        string spj_path,    //spj路径
         string file_spj,    //spj的输出文件
         string output_file_std) {
-    LOG_DEBUG("1 %s\n", (spj_path + "/" + problem::spj_exe_file).c_str());
-    LOG_DEBUG("2 %s\n", problem::spj_exe_file.c_str());
-    LOG_DEBUG("3 %s\n", input_file.c_str());
-    LOG_DEBUG("4 %s\n", output_file.c_str());
-    LOG_DEBUG("5 %s\n", output_file_std.c_str());
-    LOG_DEBUG("6 %s\n", file_spj.c_str());
 #ifdef JUDGE_DEBUG__
     cout<<"inputfile: "<<input_file<<endl;
     cout<<"outputfile: "<<output_file<<endl;
@@ -269,6 +90,7 @@ int spj_compare_output(
         syscmd += spj_path + "/" + problem::spj_exe_file + " " + spj_path + "/spj.cpp";
         LOG_DEBUG("%s\n", syscmd.c_str());
         system(syscmd.c_str());
+        // 避免spj重复编译
         syscmd = "mv -f ";
         syscmd += spj_path + "/spj.cpp " + spj_path + "/spj.oldcode";
         system(syscmd.c_str());
@@ -277,8 +99,6 @@ int spj_compare_output(
         output_result(judge_conf::OJ_SE, 0, judge_conf::EXIT_ACCESS_SPJ);
         exit(judge_conf::EXIT_ACCESS_SPJ);
     }
-    //    return judge_conf::OJ_SE;
-    //End of the Improve*/
     int status = 0;
     pid_t pid_spj = fork();
     if (pid_spj < 0) {
@@ -289,7 +109,8 @@ int spj_compare_output(
         freopen(file_spj.c_str(), "w", stdout);
         if (EXIT_SUCCESS == malarm(ITIMER_REAL, judge_conf::spj_time_limit)) {
             log_close();
-            //argv[1] 标准输入 ， argv[2] 用户程序输出, argv[3] 标准输出
+            // 在spj.cpp里使用freopem打开argv[2]的文件名就能获取用户输出
+            // argv[1] 标准输入 ， argv[2] 用户程序输出, argv[3] 标准输出
             if (execlp((spj_path + "/" + problem::spj_exe_file).c_str(),
                        problem::spj_exe_file.c_str(), input_file.c_str(),
                        output_file.c_str(), output_file_std.c_str(), NULL) < 0) {
@@ -297,7 +118,6 @@ int spj_compare_output(
             }
         }
     } else {
-        // TODO no child process 找不出原因 注释掉
         if (waitpid(pid_spj, &status, 0) < 0) {
             LOG_BUG("waitpid failed, %d:%s", errno, strerror(errno));
             output_result(judge_conf::OJ_SE, -errno, judge_conf::EXIT_COMPARE_SPJ_WAIT);
@@ -435,7 +255,7 @@ void set_limit() {
     log_close();
 }
 
-int Compiler() {
+int Compiler(string temp_dir) {
     int status = 0;
     pid_t compiler = fork();
     if (compiler < 0) {
@@ -443,7 +263,7 @@ int Compiler() {
         output_result(judge_conf::OJ_SE, -errno, judge_conf::EXIT_COMPILE);
         exit(judge_conf::EXIT_COMPILE);
     } else if (compiler == 0) {
-        chdir(judge_conf::temp_dir.c_str());
+        chdir(temp_dir.c_str());
         freopen("./ce.txt", "w", stderr); //编译出错信息
         freopen("/dev/null", "w", stdout); //防止编译器在标准输出中输出额外的信息影响评测
         malarm(ITIMER_REAL, judge_conf::compile_time_limit);
@@ -496,7 +316,7 @@ json judge(string sid, int lang, string uuid, int num, int time, int mem, int sp
     problem::spj = spj;
     if (problem::spj) {
         problem::spj_exe_file = "spj.out";
-        problem::stdout_file_spj = "stdout_spj.txt";
+        problem::stdout_file_spj = "stdout_spj.out";
     }
     // 为何是+=?
     judge_conf::judge_time_limit += problem::time_limit;
@@ -507,14 +327,35 @@ json judge(string sid, int lang, string uuid, int num, int time, int mem, int sp
         exit(judge_conf::EXIT_VERY_FIRST);
     }
     signal(SIGALRM, timeout);
+    json result = json::object();
+    result["sid"]=sid;
+    result["testdata"]=json::array();
+    string temp_dir=judge_conf::temp_dir+"/"+sid;
+    if (access(temp_dir.c_str(), 0) == -1) {
+        string syscmd = "mkdir "+temp_dir;
+        system(syscmd.c_str());
+    }
     // 编译
-    int compile_ok = Compiler();
+    int compile_ok = Compiler(temp_dir);
     // CE
     if (compile_ok != 0) {
+        char buf[10000];  /*缓冲区*/
+        FILE *fp;            /*文件指针*/
+        int len;             /*行字符个数*/
+        if((fp = fopen((temp_dir+"/ce.txt").c_str(),"r")) == NULL){
+            perror("fail to read");
+            exit (1) ;
+        }
+        while(fgets(buf,10000,fp) != NULL){
+            len = strlen(buf);
+            buf[len-1] = '\0';  /*去掉换行符*/
+            printf("%s %d \n",buf,len - 1);
+        }
+        result["ce_info"]=buf;
         output_result(judge_conf::OJ_CE);
-        exit(judge_conf::EXIT_OK);
+//        exit(judge_conf::EXIT_OK);
+        return result;
     }
-    json result = json::array();
     string testdata_dir = judge_conf::work_dir + "/TestCase/" + uuid;
     // 运行
     DIR *dp;
@@ -528,7 +369,7 @@ json judge(string sid, int lang, string uuid, int num, int time, int mem, int sp
         struct rusage rused;
         problem::input_file = testdata_dir + "/" + to_string(i) + ".in";
         problem::output_file_std = testdata_dir + "/" + to_string(i) + +".out";
-        problem::output_file = judge_conf::temp_dir + "/" + to_string(i) + ".out";
+        problem::output_file = temp_dir + "/" + to_string(i) + ".out";
 
         pid_t userexe = fork();
         if (userexe < 0) {
@@ -549,7 +390,7 @@ json judge(string sid, int lang, string uuid, int num, int time, int mem, int sp
                 exit(judge_conf::EXIT_SET_SECURITY);
             }
             //切换目录
-            if (EXIT_SUCCESS != chdir(judge_conf::temp_dir.c_str())) {
+            if (EXIT_SUCCESS != chdir(temp_dir.c_str())) {
                 LOG_BUG("chdir failed");
                 exit(judge_conf::EXIT_SET_SECURITY);
             }
@@ -598,7 +439,7 @@ json judge(string sid, int lang, string uuid, int num, int time, int mem, int sp
                             result = spj_compare_output(problem::input_file,
                                                         problem::output_file,
                                                         testdata_dir, //problem::spj_exe_file, modif y in 13-11-10
-                                                        judge_conf::temp_dir + "/" + problem::stdout_file_spj,
+                                                        temp_dir + "/" + problem::stdout_file_spj,
                                                         problem::output_file_std);
                         } else {
                             result = compare_output(problem::output_file_std, problem::output_file);
@@ -642,13 +483,13 @@ json judge(string sid, int lang, string uuid, int num, int time, int mem, int sp
                     ptrace(PTRACE_KILL, userexe);
                     break;
                 }
-                int tempmemory = 0;
+                long tempmemory = 0;
                 if (Langs[problem::lang]->VMrunning) {
                     tempmemory = rused.ru_minflt * (getpagesize() / judge_conf::KILO);
                 } else {
                     tempmemory = getmemory(userexe);
                 }
-                problem::memory_usage = Max(problem::memory_usage, tempmemory);
+                problem::memory_usage = max(problem::memory_usage, tempmemory);
                 if (problem::memory_usage > problem::memory_limit) {
                     problem::result = judge_conf::OJ_MLE;
                     ptrace(PTRACE_KILL, userexe);
@@ -695,11 +536,15 @@ json judge(string sid, int lang, string uuid, int num, int time, int mem, int sp
             problem::result = judge_conf::OJ_MLE;
         }
         json j = json::object();
-        j["uuid"] = uuid + "-" + to_string(i);
+        j["id"] = to_string(i);
         j["result"] = problem::result;
         j["time"] = problem::time_usage;
         j["memory"] = problem::memory_usage;
-        result.push_back(j);
+        result["testdata"].push_back(j);
+    }
+    if (access(temp_dir.c_str(), 0) == 0) {
+        string syscmd = "rm -rf "+temp_dir;
+        system(syscmd.c_str());
     }
     return result;
 }
@@ -731,7 +576,8 @@ int main() {
     log_open(judge_conf::log_file.c_str());
     // 启动web服务
 //    serve_forever("12913");
-    json result = judge("a09b1fa7-dd25-4013-a06f-0a04fa857374", 2, "a09b1fa7-dd25-4013-a06f-0a04fa857373", 3, 1000,32768, 0);
+    json result = judge("a09b1fa7-dd25-4013-a06f-0a04fa857374", 2, "a09b1fa7-dd25-4013-a06f-0a04fa857373", 2, 1000,
+                        32768, 1);
     printf("%s\n", result.dump().c_str());
     return 0;
 }
