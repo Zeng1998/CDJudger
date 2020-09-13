@@ -730,8 +730,8 @@ int main() {
     // 打开日志文件
     log_open(judge_conf::log_file.c_str());
     // 启动web服务
-    serve_forever("12913");
-//    json result = judge("a09b1fa7-dd25-4013-a06f-0a04fa857374", 2, "a09b1fa7-dd25-4013-a06f-0a04fa857373", 3, 1000,32768, 0);
-//    printf("%s\n", result.dump().c_str());
+//    serve_forever("12913");
+    json result = judge("a09b1fa7-dd25-4013-a06f-0a04fa857374", 2, "a09b1fa7-dd25-4013-a06f-0a04fa857373", 3, 1000,32768, 0);
+    printf("%s\n", result.dump().c_str());
     return 0;
 }

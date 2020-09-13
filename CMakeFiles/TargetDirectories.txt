@@ -1,3 +1,0 @@
-/home/keane/Documents/OnlineJudge/CDJudger/CMakeFiles/edit_cache.dir
-/home/keane/Documents/OnlineJudge/CDJudger/CMakeFiles/rebuild_cache.dir
-/home/keane/Documents/OnlineJudge/CDJudger/CMakeFiles/CDJudger.dir
