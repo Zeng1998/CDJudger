@@ -25,10 +25,11 @@ namespace LanguageSupport {
             {"./Main", NULL},
             false
     };
+    // 给java命令添加了-cp .
     const LangSupport JavaLang = {
             "java", "Main.java",
             {"javac", "-J-Xms128M", "-J-Xmx512M", "Main.java", NULL},
-            {"java", "-Djava.security.manager", "-Xms128M", "-Xms512M", "-DONLINE_JUDGE=true", "Main", NULL},
+            {"java", "-cp",".","-Djava.security.manager", "-Xms128M", "-Xms512M", "-DONLINE_JUDGE=true", "Main", NULL},
             true
     };
 };

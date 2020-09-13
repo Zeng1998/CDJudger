@@ -1,20 +1,7 @@
 /*
- * A simple and simpel judge
+ * A simple and simple judger
  * Author: Keane modified from https://github.com/acm309/Judger
- *
- * use:
- * ./judge -l 语言 -D 数据目录 -d 临时目录 -t 时间限制 -m 内存限制 -o 输出限制 [-S dd] [-T]
- * -l 语言 C=0, C++=1, JAVA=2
- * -D 数据目录 包括题号的输入输出文件的目录
- * -d 临时目录 judge可以用来存放编译后的文件及其他临时文件的
- * -t 时间限制 允许程序运行的最长时间, 以毫秒为单位, 默认为1000, 1s
- * -m 内存限制 允许程序使用的最大内存量, 以KB为单位, 默认为65536, 64MB
- * -S dd 可选, 如指定此参数, 则表示这是一个Special Judge的题目
- *
- * 用-S dd，data需要有spj.out spj.cpp
- * for example:
- * ./judge -l 1 -D data -d temp -t 1000 -m 65536
- * */
+ */
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -36,7 +23,6 @@
 #include <netdb.h>
 
 #define CONNMAX 1000
-
 static int listenfd, clients[CONNMAX];
 
 static void error(char *);
@@ -56,23 +42,15 @@ static char *buf;
 void serve_forever(const char *PORT) {
     struct sockaddr_in clientaddr;
     socklen_t addrlen;
-    char c;
-
     int slot = 0;
-
-    printf(
-            "Server started %shttp://127.0.0.1:%s%s\n",
-            "\033[92m", PORT, "\033[0m"
-    );
-
-    // Setting all elements to -1: signifies there is no client connected
-    int i;
-    for (i = 0; i < CONNMAX; i++)
+    printf("Server started http://127.0.0.1:%s\n", PORT);
+    for (int i = 0; i < CONNMAX; i++) {
         clients[i] = -1;
+    }
     startServer(PORT);
-
     // Ignore SIGCHLD to avoid zombie threads
-    signal(SIGCHLD, SIG_IGN);
+    // 如果把这个注释掉就正常了
+//    signal(SIGCHLD, SIG_IGN);
 
     // ACCEPT connections
     while (1) {
@@ -92,11 +70,8 @@ void serve_forever(const char *PORT) {
     }
 }
 
-//start server
 void startServer(const char *port) {
     struct addrinfo hints, *res, *p;
-
-    // getaddrinfo for host
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
@@ -105,30 +80,28 @@ void startServer(const char *port) {
         perror("getaddrinfo() error");
         exit(1);
     }
-    // socket and bind
     for (p = res; p != NULL; p = p->ai_next) {
         int option = 1;
         listenfd = socket(p->ai_family, p->ai_socktype, 0);
         setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option));
-        if (listenfd == -1) continue;
-        if (bind(listenfd, p->ai_addr, p->ai_addrlen) == 0) break;
+        if (listenfd == -1) {
+            continue;
+        }
+        if (bind(listenfd, p->ai_addr, p->ai_addrlen) == 0) {
+            break;
+        }
     }
     if (p == NULL) {
         perror("socket() or bind()");
         exit(1);
     }
-
     freeaddrinfo(res);
-
-    // listen for incoming connections
     if (listen(listenfd, 1000000) != 0) {
         perror("listen() error");
         exit(1);
     }
 }
 
-
-// get request header
 char *request_header(const char *name) {
     header_t *h = reqhdr;
     while (h->name) {
@@ -137,15 +110,13 @@ char *request_header(const char *name) {
     }
     return NULL;
 }
-std::string data="";
-//client connection
-void respond(int n) {
-    int rcvd, fd, bytes_read;
-    char *ptr;
 
+std::string data = "";
+
+void respond(int n) {
+    int rcvd;
     buf = (char *) malloc(65535);
     rcvd = recv(clients[n], buf, 65535, 0);
-
     if (rcvd < 0)    // receive error
         fprintf(stderr, ("recv() error\n"));
     else if (rcvd == 0)    // receive socket closed
@@ -167,18 +138,18 @@ void respond(int n) {
 
         header_t *h = reqhdr;
         char *t, *t2;
-        bool content=false;
+        bool content = false;
         while (h < reqhdr + 16) {
             char *k, *v, *t;
-            if(content){
+            if (content) {
                 k = strtok(NULL, "\r\n: \t");
                 if (!k) break;
                 v = strtok(NULL, "\r\n");
                 while (*v && *v == ' ') v++;
-                data=std::string(k,k+strlen(k));
-                data+=": ";
-                data+=v;
-            }else{
+                data = std::string(k, k + strlen(k));
+                data += ": ";
+                data += v;
+            } else {
                 k = strtok(NULL, "\r\n: \t");
                 if (!k) break;
                 v = strtok(NULL, "\r\n");
@@ -189,8 +160,8 @@ void respond(int n) {
             h++;
             fprintf(stderr, "[H] %s: %s\n", k, v);
             t = v + 1 + strlen(v);
-            if (t[1] == '\r' && t[2] == '\n'){
-                content=true;
+            if (t[1] == '\r' && t[2] == '\n') {
+                content = true;
             }
         }
         t = strtok(NULL, "\r\n");
@@ -235,9 +206,9 @@ void output_result(int result, int memory_usage = 0, int time_usage = 0) {
     //在前台看到Dangerous Code时，Time一栏的数值取绝对值就是Syscall号
     //Bugfix：之前版本评测过程中每处错误发生时一般会直接exit，导致前台status一直Running
     if (result == judge_conf::OJ_SE || result == judge_conf::OJ_RF) time_usage *= -1;
-    //#ifdef JUDGE_DEBUG
+#ifdef JUDGE_DEBUG
     LOG_DEBUG("result: %d, %dKB %dms", result, memory_usage, time_usage);
-    //#endif
+#endif
     printf("xx %d %d %d\n", result, memory_usage, time_usage);
 }
 
@@ -275,6 +246,12 @@ int spj_compare_output(
         string spj_path,    //spj路径, change it from exefile to the folder who store the exefile
         string file_spj,    //spj的输出文件
         string output_file_std) {
+    LOG_DEBUG("1 %s\n", (spj_path + "/" + problem::spj_exe_file).c_str());
+    LOG_DEBUG("2 %s\n", problem::spj_exe_file.c_str());
+    LOG_DEBUG("3 %s\n", input_file.c_str());
+    LOG_DEBUG("4 %s\n", output_file.c_str());
+    LOG_DEBUG("5 %s\n", output_file_std.c_str());
+    LOG_DEBUG("6 %s\n", file_spj.c_str());
 #ifdef JUDGE_DEBUG__
     cout<<"inputfile: "<<input_file<<endl;
     cout<<"outputfile: "<<output_file<<endl;
@@ -320,12 +297,12 @@ int spj_compare_output(
             }
         }
     } else {
+        // TODO no child process 找不出原因 注释掉
         if (waitpid(pid_spj, &status, 0) < 0) {
             LOG_BUG("waitpid failed, %d:%s", errno, strerror(errno));
             output_result(judge_conf::OJ_SE, -errno, judge_conf::EXIT_COMPARE_SPJ_WAIT);
             exit(judge_conf::EXIT_COMPARE_SPJ_WAIT);
         }
-
         if (WIFEXITED(status)) {
             if (WEXITSTATUS(status) == EXIT_SUCCESS) {
                 FILE *fd = fopen(file_spj.c_str(), "r");
@@ -502,43 +479,16 @@ void sigseg(int) {
     output_result(judge_conf::OJ_SE, 0, judge_conf::EXIT_UNPRIVILEGED);
     exit(judge_conf::EXIT_UNPRIVILEGED);
 }
-json judge(int lang, string uuid, int time, int mem, int spj);
-void route() {
-    ROUTE_START()
-    ROUTE_POST("/")
-        {
-            printf("HTTP/1.1 200 OK\r\n\r\n");
-            printf("Wow, seems that you POSTed %d bytes. \r\n", payload_size);
-            printf("Fetch the data using `payload` variable.");
-        }
-    ROUTE_GET("/")
-        {
-            printf("HTTP/1.1 200 OK\r\n\r\n");
-            printf("Test\n");
-        }
-    ROUTE_POST("/judge")
-        {
-            printf("HTTP/1.1 200 OK\r\n\r\n");
-            printf("%s\n",data.c_str());
-            auto req=json::parse(data);
-            int lang=req["lang"].get<int>();
-            string uuid=req["uuid"].get<string>();
-            int time=req["time"].get<int>();
-            int mem=req["mem"].get<int>();
-            int spj=req["spj"].get<int>();
-            json result=judge(lang,uuid,time,mem,spj);
-            printf("%s\n",result.dump().c_str());
-        }
-        ROUTE_END()
-}
 
 // 自己重新封装判题逻辑，方便web服务调用
+// sid：提交id
 // lang：语言 0[C] 1[C++] 2[Java]
 // uid：数据和spj所在文件夹
+// num：测试数据数量
 // time：时间限制，单位ms
 // mem：内存限制，单位KB
 // spj：是否需要spj，0[否] 1[是]
-json judge(int lang, string uuid, int time, int mem, int spj) {
+json judge(string sid, int lang, string uuid, int num, int time, int mem, int spj) {
     // parse参数
     problem::lang = lang;
     problem::time_limit = time;
@@ -574,20 +524,7 @@ json judge(int lang, string uuid, int time, int mem, int spj) {
         output_result(judge_conf::OJ_SE, 0, judge_conf::EXIT_PRE_JUDGE);
         exit(judge_conf::EXIT_PRE_JUDGE);
     }
-    struct dirent *prt = NULL;
-    int cnt = 0;
-    // 循环读目录
-    while (prt = readdir(dp)) {
-        // 判断是不是"."或".."目录
-        if (strcmp(".", prt->d_name) == 0 || strcmp("..", prt->d_name) == 0) {
-            continue;
-        }
-        // 判断文件类型是否为普通文件
-        if (prt->d_type == DT_REG) {
-            cnt++;
-        }
-    }
-    for (int i = 1; i <= cnt / 2; i++) {
+    for (int i = 1; i <= num; i++) {
         struct rusage rused;
         problem::input_file = testdata_dir + "/" + to_string(i) + ".in";
         problem::output_file_std = testdata_dir + "/" + to_string(i) + +".out";
@@ -600,6 +537,9 @@ json judge(int lang, string uuid, int time, int mem, int spj) {
             exit(judge_conf::EXIT_PRE_JUDGE);
         } else if (userexe == 0) {
             signal(SIGSEGV, sigseg);
+            for (int i = 0; i < 6; i++) {
+                LOG_DEBUG("%s ", Langs[problem::lang]->RunCmd[i]);
+            }
             //重新定向io
             io_redirect();
             //获得运行用户的信息
@@ -631,7 +571,6 @@ json judge(int lang, string uuid, int time, int mem, int spj) {
             }
             // 设置用户程序的 内存 时间的限制
             set_limit();
-
             // 运行程序，正常运行则没有返回值
             execvp(Langs[problem::lang]->RunCmd[0], (char *const *) Langs[problem::lang]->RunCmd);
             int errsa = errno;
@@ -650,6 +589,7 @@ json judge(int lang, string uuid, int time, int mem, int spj) {
                 }
                 // 如果是退出信号
                 if (WIFEXITED(status)) {
+                    LOG_DEBUG("%d\n", WEXITSTATUS(status));
                     // java 返回非0表示出错
                     if (!Langs[problem::lang]->VMrunning || WEXITSTATUS(status) == EXIT_SUCCESS) {
                         int result;
@@ -764,13 +704,34 @@ json judge(int lang, string uuid, int time, int mem, int spj) {
     return result;
 }
 
-int main(int argc, char *argv[]) {
+void route() {
+    ROUTE_START()
+    ROUTE_POST("/judge")
+        {
+            printf("HTTP/1.1 200 OK\r\n\r\n");
+            printf("%s\n", data.c_str());
+            auto req = json::parse(data);
+            string sid = req["sid"].get<string>();
+            int lang = req["lang"].get<int>();
+            string uuid = req["uuid"].get<string>();
+            int num = req["num"].get<int>();
+            int time = req["time"].get<int>();
+            int mem = req["mem"].get<int>();
+            int spj = req["spj"].get<int>();
+            json result = judge(sid, lang, uuid, num, time, mem, spj);
+            printf("%s\n", result.dump().c_str());
+        }
+        ROUTE_END()
+}
+
+int main() {
     // 读config.ini配置文件
     judge_conf::ReadConf();
     // 打开日志文件
     log_open(judge_conf::log_file.c_str());
     // 启动web服务
     serve_forever("12913");
-//    json result = judge(1, "a09b1fa7-dd25-4013-a06f-0a04fa857373", 1000, 32768, 0);
+//    json result = judge("a09b1fa7-dd25-4013-a06f-0a04fa857374", 2, "a09b1fa7-dd25-4013-a06f-0a04fa857373", 3, 1000,32768, 0);
+//    printf("%s\n", result.dump().c_str());
     return 0;
 }
